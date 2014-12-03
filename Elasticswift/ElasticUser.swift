@@ -42,7 +42,7 @@ class ElasticUser {
         ud.synchronize()
     }
 
-    class func signUp(username: String, password: String, block: (user: ElasticUser?) -> Void) {
+    class func signUp(username: String, password: String, block: (user: ElasticUser?) -> ()) {
         let params = [
             "authenticator": "index",
             "username": username,
@@ -64,7 +64,7 @@ class ElasticUser {
         }
     }
 
-    class func logIn(username: String, password: String, block: (user: ElasticUser?) -> Void) {
+    class func logIn(username: String, password: String, block: (user: ElasticUser?) -> ()) {
         let params = [
             "username": username,
             "password": password
@@ -85,10 +85,50 @@ class ElasticUser {
         }
     }
 
+    func tweet(text: String, block: () -> ()) {
+        let now = NSDate()
+        let dateFormatter = NSDateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-ddTHH:mm:ss"
+        let nowStr = dateFormatter.stringFromDate(now)
 
-    func signUpInBackgroundWithBlock(block: (success: Bool!, error: NSError!)->Void) {
+        let params = [
+            "user": self.username,
+            "post_date": nowStr,
+            "message": text
+        ]
 
+        println("tweet...")
 
-        block(success: true, error: NSError())
+        let res = Alamofire.request(.POST, "http://localhost:9200/twitter/tweet/", parameters: params, encoding: .JSON)
+            .responseJSON { (_, _, json, _) -> Void in
+                let sjson = JSON(json!)
+                println(sjson["status"])
+                if sjson["created"] == true {
+                    println("tweet success")
+                    block()
+                } else {
+                    println("tweet error")
+                }
+        }
     }
+
+    func getTweets(block: [String] -> ()) {
+        println("getting tweets...")
+
+        let res = Alamofire.request(.POST, "http://localhost:9200/twitter/tweet/_search?q=user:\(self.username)", parameters: nil, encoding: .JSON)
+            .responseJSON { (_, _, json, _) -> Void in
+                let sjson = JSON(json!)
+                if let hits = sjson["hits"]["hits"].array {
+                    var tweets = [] as [String]
+                    for subJson: JSON in hits {
+                        println(subJson["_source"]["message"].string!)
+                        tweets.append(subJson["_source"]["message"].string!)
+                    }
+                    block(tweets)
+                } else {
+                    println("getTweets error")
+                }
+        }
+    }
+
 }

@@ -10,7 +10,7 @@ import UIKit
 
 class MasterViewController: UITableViewController {
 
-    var objects = NSMutableArray()
+    var objects: [String] = []
 
     var username: String?
     var password: String?
@@ -26,7 +26,7 @@ class MasterViewController: UITableViewController {
         let leftButton = UIBarButtonItem(title: "Logout", style: UIBarButtonItemStyle.Plain, target: self, action: "logOut")
         self.navigationItem.leftBarButtonItem = leftButton
 
-        let addButton = UIBarButtonItem(barButtonSystemItem: .Add, target: self, action: "insertNewObject:")
+        let addButton = UIBarButtonItem(barButtonSystemItem: .Add, target: self, action: "showTweetAlert")
         self.navigationItem.rightBarButtonItem = addButton
 
         if let currentUser = ElasticUser.currentUser() {
@@ -34,6 +34,24 @@ class MasterViewController: UITableViewController {
         } else {
             showLoginAlert()
         }
+    }
+
+    func showTweetAlert() {
+        var loginAlert: UIAlertController = UIAlertController(title: "Tweet", message: "Plase comment.", preferredStyle: UIAlertControllerStyle.Alert)
+
+        loginAlert.addTextFieldWithConfigurationHandler({ textfield in
+            textfield.placeholder = "text..."
+        })
+
+        loginAlert.addAction(UIAlertAction(title: "Post", style: UIAlertActionStyle.Default, handler: { alertAction in
+
+            let textfield = loginAlert.textFields![0] as UITextField
+            ElasticUser.currentUser()!.tweet(textfield.text, block: {
+                self.loadData()
+            })
+        }))
+
+        self.presentViewController(loginAlert, animated: true, completion: nil)
     }
 
     func showLoginAlert() {
@@ -87,7 +105,13 @@ class MasterViewController: UITableViewController {
     }
 
     func loadData() {
-        self.title = ElasticUser.currentUser()!.username
+        let user = ElasticUser.currentUser()!
+        self.title = user.username
+
+        user.getTweets({ (tweets: [String]) in
+            self.objects = tweets
+            self.tableView.reloadData()
+        })
     }
 
     func logOut() {
@@ -100,21 +124,15 @@ class MasterViewController: UITableViewController {
         // Dispose of any resources that can be recreated.
     }
 
-    func insertNewObject(sender: AnyObject) {
-        objects.insertObject(NSDate(), atIndex: 0)
-        let indexPath = NSIndexPath(forRow: 0, inSection: 0)
-        self.tableView.insertRowsAtIndexPaths([indexPath], withRowAnimation: .Automatic)
-    }
+//    func insertNewObject(sender: AnyObject) {
+//        objects.insertObject(NSDate(), atIndex: 0)
+//        let indexPath = NSIndexPath(forRow: 0, inSection: 0)
+//        self.tableView.insertRowsAtIndexPaths([indexPath], withRowAnimation: .Automatic)
+//    }
 
     // MARK: - Segues
 
     override func prepareForSegue(segue: UIStoryboardSegue, sender: AnyObject?) {
-        if segue.identifier == "showDetail" {
-            if let indexPath = self.tableView.indexPathForSelectedRow() {
-                let object = objects[indexPath.row] as NSDate
-            (segue.destinationViewController as DetailViewController).detailItem = object
-            }
-        }
     }
 
     // MARK: - Table View
@@ -130,8 +148,7 @@ class MasterViewController: UITableViewController {
     override func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCellWithIdentifier("Cell", forIndexPath: indexPath) as UITableViewCell
 
-        let object = objects[indexPath.row] as NSDate
-        cell.textLabel!.text = object.description
+        cell.textLabel!.text = objects[indexPath.row]
         return cell
     }
 
